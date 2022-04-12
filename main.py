@@ -1,12 +1,17 @@
 # FastApi
-from fastapi import FastAPI
-
+from fastapi import FastAPI, Depends, HTTPException, status
 # Models
 from Models.Request import User as UserRequest
 from Models.Response import User as UserResponse
-
+from Models.Response import Token
 # db
 from db.userconnection import UserConnection
+# JWT
+from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
+from services.tokens import create_access_token, authenticate_user
+# Utilities
+from datetime import timedelta
+
 
 # dbconection
 config = {
@@ -20,28 +25,50 @@ config = {
 
 app = FastAPI()
 
+from services.tokens import oauth2_sheme
+
 
 # Users endpoints
 @app.post("/user", response_model = UserResponse)
-def post_user(user: UserRequest):
+def post_user(user: UserRequest, token: str = Depends(oauth2_sheme)):
     db = UserConnection(**config)
     db.Insert(f'INSERT INTO user (username, password) values ("{user.username}", "{user.password}")')
     return user
 
 @app.get("/user")
-def get_user():
+def get_user(token: str = Depends(oauth2_sheme)):
     db = UserConnection(**config)
-    data = db.makequery("SELECT * FROM user")
+    data = db.Select("SELECT * FROM user")
     return data
 
 @app.delete("/user/{id}")
-def delete_user(id: int):
+def delete_user(id: int, token: str = Depends(oauth2_sheme)):
     db = UserConnection(**config)
     db.Delete(f"DELETE FROM user WHERE id={id}")
     return "Usuario Eliminado"
 
 @app.put("/user/{id}", response_model = UserResponse)
-def update_user(id: int, user: UserRequest):
+def update_user(id: int, user: UserRequest, token: str = Depends(oauth2_sheme)):
     db = UserConnection(**config)
     db.Update(f'UPDATE user SET username="{user.username}" WHERE id={id}')
     return user
+
+
+# Endpoint para generar los tokens
+@app.post("/token", response_model = Token)
+async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
+    user = authenticate_user(username = form_data.username, password = form_data.password)
+
+    if not user:
+        raise HTTPException(
+            status_code = status.HTTP_401_UNAUTHORIZED,
+            detail = "Username o password incorrecta",
+            headers = {"WWW-Authenticate": "Bearer"}
+        )
+    
+    access_token_expires = timedelta(minutes = 30)
+    access_token = create_access_token(
+        data = {"sub": user["username"]},
+        expires_delta = access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
