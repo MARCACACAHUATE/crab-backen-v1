@@ -51,11 +51,10 @@ def authenticate_user(username: str, password: str):
     """
 
     db = UserConnection(**config)
-    user = db.Select(f"SELECT * FROM user WHERE username='{username}'")[0]
+    user = db.Select(f"SELECT * FROM users WHERE username='{username}'")[0]
     
     if not user:
         return False
-    
     if not verify_password(password, user["password"]):
         return False
     

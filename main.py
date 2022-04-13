@@ -8,7 +8,7 @@ from Models.Response import Token
 from db.userconnection import UserConnection
 # JWT
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
-from services.tokens import create_access_token, authenticate_user
+from services.tokens import create_access_token, authenticate_user, create_password_hash
 # Utilities
 from datetime import timedelta
 
@@ -30,27 +30,33 @@ from services.tokens import oauth2_sheme
 
 # Users endpoints
 @app.post("/user", response_model = UserResponse)
-def post_user(user: UserRequest, token: str = Depends(oauth2_sheme)):
+def create_new_user(user: UserRequest):
+    # Crea la conexion a la base de datos.
     db = UserConnection(**config)
-    db.Insert(f'INSERT INTO user (username, password) values ("{user.username}", "{user.password}")')
+    pwd_hashed = create_password_hash(user.password)
+    # Crea el usuario en la base de datos.
+    db.Insert(
+            f'''INSERT INTO users (username, email, password, first_name, last_name, is_admin, is_active) 
+            VALUES ("{user.username}", "{user.email}", "{pwd_hashed}", "{user.first_name}", "{user.last_name}", "{int(user.is_admin)}", "{int(user.is_active)}")'''
+        )
     return user
 
 @app.get("/user")
 def get_user(token: str = Depends(oauth2_sheme)):
     db = UserConnection(**config)
-    data = db.Select("SELECT * FROM user")
+    data = db.Select("SELECT * FROM users")
     return data
 
 @app.delete("/user/{id}")
 def delete_user(id: int, token: str = Depends(oauth2_sheme)):
     db = UserConnection(**config)
-    db.Delete(f"DELETE FROM user WHERE id={id}")
+    db.Delete(f"DELETE FROM users WHERE id={id}")
     return "Usuario Eliminado"
 
 @app.put("/user/{id}", response_model = UserResponse)
 def update_user(id: int, user: UserRequest, token: str = Depends(oauth2_sheme)):
     db = UserConnection(**config)
-    db.Update(f'UPDATE user SET username="{user.username}" WHERE id={id}')
+    db.Update(f'UPDATE users SET username="{user.username}" WHERE id={id}')
     return user
 
 

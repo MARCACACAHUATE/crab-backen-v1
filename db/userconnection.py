@@ -18,11 +18,15 @@ class UserConnection:
         cursor = self.conn.cursor()
         cursor.execute(query)
         for x in cursor:
+            row = x[1:]
             data.append({
-                "username": x[1],
-                "email": x[2],
-                "full_name": x[3],
-                "password": x[4]
+                "username": row[0],
+                "email": row[1],
+                "first_name": row[2],
+                "last_name": row[3],
+                "password": row[4],
+                "is_admin": bool(row[5]),
+                "is_active": bool(row[6]),
             })
         cursor.close()
         return data
