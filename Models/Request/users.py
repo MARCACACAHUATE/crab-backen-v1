@@ -2,7 +2,7 @@
 from pydantic import BaseModel, Field
 
 # Typing
-from typing import Optional
+from typing import List, Optional
 
 
 
@@ -14,3 +14,6 @@ class User(BaseModel):
     last_name: Optional[str]
     is_admin: bool = False
     is_active: bool = True
+
+    # Esta madre es para los permisos
+    principals: List[str] = []

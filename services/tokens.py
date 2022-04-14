@@ -14,6 +14,9 @@ from fastapi.security import OAuth2PasswordBearer
 from datetime import datetime, timedelta
 from db import UserConnection
 
+from Models.Request import User
+
+
 SECRET_KEY = "Arriva las chivas"
 ALGORITM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
@@ -84,7 +87,7 @@ async def get_current_user(token: str = Depends(oauth2_sheme)):
         detail = "No se pudieron validar las credenciales",
         headers = {"WWW-Authenticate": "Bearer"}
     )
-
+    
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms = [ALGORITM])
         username: str = payload.get("sub")
@@ -96,7 +99,8 @@ async def get_current_user(token: str = Depends(oauth2_sheme)):
         raise credential_exception
 
     db = UserConnection(**config)
-    user = db.Select(f"SELECT * FROM user WHERE username='{username}'")
+    data = db.Select(f"SELECT * FROM users WHERE username='{username}'")[0]
+    user = User(**data)
 
     if user is None:
         raise credential_exception

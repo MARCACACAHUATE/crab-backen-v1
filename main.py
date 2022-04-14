@@ -8,7 +8,18 @@ from Models.Response import Token
 from db.userconnection import UserConnection
 # JWT
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
-from services.tokens import create_access_token, authenticate_user, create_password_hash
+from services.tokens import create_access_token, authenticate_user, create_password_hash, get_current_user
+from services.tokens import oauth2_sheme
+# Permissions
+from services.fastapi_permissions import (
+        Allow,
+        Authenticated,
+        Deny,
+        Everyone,
+        configure_permissions,
+        list_permissions
+    )
+
 # Utilities
 from datetime import timedelta
 
@@ -25,8 +36,30 @@ config = {
 
 app = FastAPI()
 
-from services.tokens import oauth2_sheme
+# ----- Probando los permisos a al verga compa ----
 
+# Permisos para listar usuarios
+class UserListResource:
+    __acl__ = [
+        (Allow, Authenticated, "view")
+    ]
+
+# da los permisos al usurio
+def get_active_principals(user: UserRequest = Depends(get_current_user)):
+
+    if user.is_admin:
+        principals = [Everyone, Authenticated]
+        principals.extend(getattr(user, "principals", []))
+    else:
+        principals = [Everyone]
+
+    return principals
+
+# Decimos como obtenemos los permisos
+Permission = configure_permissions(get_active_principals)
+
+
+# -------------------------------------------------
 
 # Users endpoints
 @app.post("/user", response_model = UserResponse)
@@ -42,9 +75,16 @@ def create_new_user(user: UserRequest):
     return user
 
 @app.get("/user")
-def get_user(token: str = Depends(oauth2_sheme)):
+def get_users_list(
+    token: str = Depends(oauth2_sheme),
+    ilr: UserListResource = Permission("view", UserListResource),
+    user = Depends(get_current_user)
+    ):
+
+    # Crea la lista de los usuarios
     db = UserConnection(**config)
     data = db.Select("SELECT * FROM users")
+
     return data
 
 @app.delete("/user/{id}")
