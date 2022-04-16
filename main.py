@@ -1,13 +1,13 @@
 # FastApi
 from fastapi import FastAPI, Depends, HTTPException, status
 # Models
-from Models.Request import User as UserRequest
+from Models.Request import User as UserRequest, UserStatus
 from Models.Response import User as UserResponse
 from Models.Response import Token
 # db
 from db.userconnection import UserConnection
 # JWT
-from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
+from fastapi.security import OAuth2PasswordRequestForm
 from services.tokens import create_access_token, authenticate_user, create_password_hash, get_current_user
 from services.tokens import oauth2_sheme
 # Permissions
@@ -39,16 +39,17 @@ app = FastAPI()
 # ----- Probando los permisos a al verga compa ----
 
 # Permisos para listar usuarios
-class UserListResource:
+class AdminResource:
     __acl__ = [
-        (Allow, Authenticated, "view")
+        (Allow, Authenticated, "view"),
+        (Allow, "role:admin", "edit")
     ]
 
 # da los permisos al usurio
 def get_active_principals(user: UserRequest = Depends(get_current_user)):
 
     if user.is_admin:
-        principals = [Everyone, Authenticated]
+        principals = [Everyone, Authenticated, "role:admin"]
         principals.extend(getattr(user, "principals", []))
     else:
         principals = [Everyone]
@@ -74,18 +75,6 @@ def create_new_user(user: UserRequest):
         )
     return user
 
-@app.get("/user")
-def get_users_list(
-    token: str = Depends(oauth2_sheme),
-    ilr: UserListResource = Permission("view", UserListResource),
-    user = Depends(get_current_user)
-    ):
-
-    # Crea la lista de los usuarios
-    db = UserConnection(**config)
-    data = db.Select("SELECT * FROM users")
-
-    return data
 
 @app.delete("/user/{id}")
 def delete_user(id: int, token: str = Depends(oauth2_sheme)):
@@ -100,7 +89,33 @@ def update_user(id: int, user: UserRequest, token: str = Depends(oauth2_sheme)):
     return user
 
 
-# Endpoint para generar los tokens
+# <---- Endpoint para admins ---->
+@app.get("/user")
+def get_users_list(
+    token: str = Depends(oauth2_sheme),
+    ilr: AdminResource = Permission("view", AdminResource),
+    user = Depends(get_current_user)
+    ):
+
+    # Crea la lista de los usuarios
+    db = UserConnection(**config)
+    data = db.Select("SELECT * FROM users")
+
+    return data
+
+@app.patch("/user/status/{id}", response_model = UserStatus)
+def change_status_user(
+        id: int,
+        user: UserStatus,
+        permisions: AdminResource = Permission("edit", AdminResource),
+        token: str = Depends(oauth2_sheme)
+    ):
+    db = UserConnection(**config)
+    db.Update(f"UPDATE users SET is_active={int(user.is_active)} WHERE id={id}")
+    return user
+
+
+# <---- Endpoint para generar los tokens ---->
 @app.post("/token", response_model = Token)
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
     user = authenticate_user(username = form_data.username, password = form_data.password)

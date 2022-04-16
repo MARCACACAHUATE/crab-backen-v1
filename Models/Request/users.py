@@ -17,3 +17,7 @@ class User(BaseModel):
 
     # Esta madre es para los permisos
     principals: List[str] = []
+
+
+class UserStatus(BaseModel):
+    is_active: bool
