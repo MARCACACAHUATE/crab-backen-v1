@@ -11,13 +11,9 @@ from fastapi.security import OAuth2PasswordRequestForm
 from services.tokens import create_access_token, authenticate_user, create_password_hash, get_current_user
 from services.tokens import oauth2_sheme
 # Permissions
-from services.fastapi_permissions import (
-        Allow,
-        Authenticated,
-        Deny,
-        Everyone,
-        configure_permissions,
-        list_permissions
+from services.permissions import (
+        AdminResource, AdminPermissions,
+        OwnerPermissions, OwnerResource, get_user
     )
 
 # Utilities
@@ -36,31 +32,6 @@ config = {
 
 app = FastAPI()
 
-# ----- Probando los permisos a al verga compa ----
-
-# Permisos para listar usuarios
-class AdminResource:
-    __acl__ = [
-        (Allow, Authenticated, "view"),
-        (Allow, "role:admin", "edit")
-    ]
-
-# da los permisos al usurio
-def get_active_principals(user: UserRequest = Depends(get_current_user)):
-
-    if user.is_admin:
-        principals = [Everyone, Authenticated, "role:admin"]
-        principals.extend(getattr(user, "principals", []))
-    else:
-        principals = [Everyone]
-
-    return principals
-
-# Decimos como obtenemos los permisos
-Permission = configure_permissions(get_active_principals)
-
-
-# -------------------------------------------------
 
 # Users endpoints
 @app.post("/user", response_model = UserResponse)
@@ -83,9 +54,19 @@ def delete_user(id: int, token: str = Depends(oauth2_sheme)):
     return "Usuario Eliminado"
 
 @app.put("/user/{id}", response_model = UserResponse)
-def update_user(id: int, user: UserRequest, token: str = Depends(oauth2_sheme)):
-    db = UserConnection(**config)
-    db.Update(f'UPDATE users SET username="{user.username}" WHERE id={id}')
+def update_user(id: int,
+                user: UserRequest,
+                owner: OwnerResource = OwnerPermissions("edit", get_user),
+                token: str = Depends(oauth2_sheme)
+        ):
+    db = UserConnection(**config)    
+    #db.Update(f"""UPDATE users 
+    #        SET username="{user.username}" 
+    #        email="{user.email}"
+    #        first_name="{user.first_name}"
+    #        last_name="{user.last_name}"   
+    #        WHERE id={id}"""
+    #    )
     return user
 
 
@@ -93,7 +74,7 @@ def update_user(id: int, user: UserRequest, token: str = Depends(oauth2_sheme)):
 @app.get("/user")
 def get_users_list(
     token: str = Depends(oauth2_sheme),
-    ilr: AdminResource = Permission("view", AdminResource),
+    ilr: AdminResource = AdminPermissions("view", AdminResource),
     user = Depends(get_current_user)
     ):
 
@@ -107,7 +88,7 @@ def get_users_list(
 def change_status_user(
         id: int,
         user: UserStatus,
-        permisions: AdminResource = Permission("edit", AdminResource),
+        permisions: AdminResource = AdminPermissions("edit", AdminResource),
         token: str = Depends(oauth2_sheme)
     ):
     db = UserConnection(**config)
