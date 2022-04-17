@@ -3,6 +3,8 @@ from fastapi import FastAPI, Depends, HTTPException, status
 # Models
 from Models.Request import User as UserRequest, UserStatus
 from Models.Response import User as UserResponse
+from Models.Request import NoticiaRequest
+from Models.Response import NoticiaResponse
 from Models.Response import Token
 # db
 from db.userconnection import UserConnection
@@ -34,7 +36,7 @@ app = FastAPI()
 
 
 # Users endpoints
-@app.post("/user", response_model = UserResponse)
+@app.post("/user", response_model = UserResponse, tags = ["Users"])
 def create_new_user(user: UserRequest):
     # Crea la conexion a la base de datos.
     db = UserConnection(**config)
@@ -47,31 +49,31 @@ def create_new_user(user: UserRequest):
     return user
 
 
-@app.delete("/user/{id}")
+@app.delete("/user/{id}", tags = ["Users"])
 def delete_user(id: int, token: str = Depends(oauth2_sheme)):
     db = UserConnection(**config)
     db.Delete(f"DELETE FROM users WHERE id={id}")
     return "Usuario Eliminado"
 
-@app.put("/user/{id}", response_model = UserResponse)
+@app.put("/user/{id}", response_model = UserResponse, tags = ["Users"])
 def update_user(id: int,
                 user: UserRequest,
                 owner: OwnerResource = OwnerPermissions("edit", get_user),
                 token: str = Depends(oauth2_sheme)
         ):
     db = UserConnection(**config)    
-    #db.Update(f"""UPDATE users 
-    #        SET username="{user.username}" 
-    #        email="{user.email}"
-    #        first_name="{user.first_name}"
-    #        last_name="{user.last_name}"   
-    #        WHERE id={id}"""
-    #    )
+    db.Update(f"""UPDATE users 
+            SET username="{user.username}" 
+            email="{user.email}"
+            first_name="{user.first_name}"
+            last_name="{user.last_name}"   
+            WHERE id={id}"""
+        )
     return user
 
 
 # <---- Endpoint para admins ---->
-@app.get("/user")
+@app.get("/user", tags = ["Admin"])
 def get_users_list(
     token: str = Depends(oauth2_sheme),
     ilr: AdminResource = AdminPermissions("view", AdminResource),
@@ -84,7 +86,7 @@ def get_users_list(
 
     return data
 
-@app.patch("/user/status/{id}", response_model = UserStatus)
+@app.patch("/user/status/{id}", response_model = UserStatus, tags = ["Admin"])
 def change_status_user(
         id: int,
         user: UserStatus,
@@ -95,9 +97,44 @@ def change_status_user(
     db.Update(f"UPDATE users SET is_active={int(user.is_active)} WHERE id={id}")
     return user
 
+# <---- Noticias ---->
+@app.post("/noticias", response_model = NoticiaResponse, tags = ["Noticias"])
+def save_noticias(noticias: NoticiaRequest):
+    cantidad_noticias = 0
+    db = UserConnection(**config)
+    cursor = db.conn.cursor()
+
+    # Transaccion para que se almacenen todas las noticias
+    try:
+        for noticia in noticias.data:
+            cursor.execute(
+                f"""INSERT INTO noticias (contenido, fecha, categoria_id, pagina_id)
+                    VALUES ("{noticia.contenido}", "{noticia.fecha}", "{noticia.categoria_id}", "{noticia.pagina_id}")"""
+            )
+            print(noticia)
+            cantidad_noticias+=1
+        
+        db.conn.commit()
+        
+        return {
+            "cantidad_noticias": cantidad_noticias,
+            "fecha": noticias.fecha,
+            "pagina": noticias.pagina,
+            "mensaje": "Almacenamiento Exitoso"
+        }
+
+    except Exception as e:
+        db.conn.rollback()
+        print(e)
+        raise HTTPException(
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail = f"Almacenamiento Fallido -> {e}"
+        )
+
+
 
 # <---- Endpoint para generar los tokens ---->
-@app.post("/token", response_model = Token)
+@app.post("/token", response_model = Token, tags = ["Login"])
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
     user = authenticate_user(username = form_data.username, password = form_data.password)
 

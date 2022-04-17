@@ -96,7 +96,11 @@ async def get_current_user(token: str = Depends(oauth2_sheme)):
             raise credential_exception
     
     except JWTError:
-        raise credential_exception
+        raise HTTPException(
+        status_code = status.HTTP_401_UNAUTHORIZED,
+        detail = "Token Expired",
+        headers = {"WWW-Authenticate": "Bearer"}
+    )
 
     db = UserConnection(**config)
     data = db.Select(f"SELECT * FROM users WHERE username='{username}'")[0]
