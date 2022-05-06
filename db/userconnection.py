@@ -51,6 +51,3 @@ class UserConnection:
         cursor.execute(query)
         self.conn.commit()
         cursor.close()
-
-    def Rollback(self):
-        self.conn.rollback()

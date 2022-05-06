@@ -3,11 +3,11 @@ from fastapi import FastAPI, Depends, HTTPException, status
 # Models
 from Models.Request import User as UserRequest, UserStatus
 from Models.Response import User as UserResponse
-from Models.Request import NoticiaRequest
+from Models.Request import NoticiaRequest, Noticia
 from Models.Response import NoticiaResponse
 from Models.Response import Token
 # db
-from db.userconnection import UserConnection
+from db import UserConnection, NoticiaConnect
 # JWT
 from fastapi.security import OAuth2PasswordRequestForm
 from services.tokens import create_access_token, authenticate_user, create_password_hash, get_current_user
@@ -19,7 +19,7 @@ from services.permissions import (
     )
 
 # Utilities
-from datetime import timedelta
+from datetime import timedelta, datetime, date
 
 
 # dbconection
@@ -131,6 +131,45 @@ def save_noticias(noticias: NoticiaRequest):
             detail = f"Almacenamiento Fallido -> {e}"
         )
 
+
+@app.get("/noticias/", tags = ["Noticias"])
+def list_noticias(fecha: str = date.today().isoformat(), token: str = Depends(oauth2_sheme)):
+    db = NoticiaConnect(**config)
+    noticias = db.List_Noticias(f"""SELECT * FROM ((noticias INNER JOIN categorias ON noticias.categoria_id = categorias.id) 
+    INNER JOIN paginas_noticias ON noticias.pagina_id = paginas_noticias.id)
+    WHERE fecha='{fecha}'
+    """)
+
+    return {
+        "total": len(noticias),
+        "noticias": noticias
+    }
+        
+
+@app.delete("/noticias/{id}", tags = ["Noticias"])
+def delete_noticia(
+    id: int,
+    token: str = Depends(oauth2_sheme),
+    permission: AdminResource =  AdminPermissions("edit", AdminResource)
+):
+    db = NoticiaConnect(**config)
+    try:
+        noticia = db.Select(f"SELECT * FROM noticias WHERE id={id}")[0]
+        db.Delete(f"DELETE FROM noticias WHERE id={id}")
+        return {
+            "message": "Noticia Eliminada con exito",
+            "data": noticia
+        }
+
+    except IndexError as e:
+        #return {
+        #    "message": "El elemento que quiere eliminar no existe",
+        #    "date": []
+        #}
+        raise HTTPException(
+            status_code = status.HTTP_404_NOT_FOUND,
+            detail = "El elemento que quiere eliminar no existe"
+        )
 
 
 # <---- Endpoint para generar los tokens ---->
