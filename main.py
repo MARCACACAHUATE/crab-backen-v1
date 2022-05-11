@@ -1,13 +1,15 @@
 # FastApi
 from fastapi import FastAPI, Depends, HTTPException, status
+from h11 import Data
 # Models
 from Models.Request import User as UserRequest, UserStatus
 from Models.Response import User as UserResponse
 from Models.Request import NoticiaRequest, Noticia
 from Models.Response import NoticiaResponse
 from Models.Response import Token
+from Models.Request import Dataset
 # db
-from db import UserConnection, NoticiaConnect
+from db import UserConnection, NoticiaConnect, DatasetConnection
 # JWT
 from fastapi.security import OAuth2PasswordRequestForm
 from services.tokens import create_access_token, authenticate_user, create_password_hash, get_current_user
@@ -15,11 +17,14 @@ from services.tokens import oauth2_sheme
 # Permissions
 from services.permissions import (
         AdminResource, AdminPermissions,
-        OwnerPermissions, OwnerResource, get_user
+        OwnerPermissions, OwnerResource,
+        DatasetPermissions, DatasetResource, 
+        get_user, get_dataset_owner
     )
 
 # Utilities
 from datetime import timedelta, datetime, date
+from services.tokens import get_current_user
 
 
 # dbconection
@@ -35,7 +40,7 @@ config = {
 app = FastAPI()
 
 
-# Users endpoints
+# <---- Users ---->
 @app.post("/user", response_model = UserResponse, tags = ["Users"])
 def create_new_user(user: UserRequest):
     # Crea la conexion a la base de datos.
@@ -162,14 +167,68 @@ def delete_noticia(
         }
 
     except IndexError as e:
-        #return {
-        #    "message": "El elemento que quiere eliminar no existe",
-        #    "date": []
-        #}
         raise HTTPException(
             status_code = status.HTTP_404_NOT_FOUND,
             detail = "El elemento que quiere eliminar no existe"
         )
+
+
+# <---- Datasets ---->
+@app.post("/data", tags = ["Datasets"])
+async def create_dataset(
+        dataset: Dataset, 
+        token: str = Depends(oauth2_sheme), 
+        user: UserRequest = Depends(get_current_user)
+    ):
+    try:
+        db = DatasetConnection(**config)
+        db.Insert(
+            f"""INSERT INTO datasets (fecha_inicio, fecha_fin, usuario_id)
+            VALUES ("{dataset.fecha_inicio}","{dataset.fecha_fin}", {user.id})"""
+        )
+        return {
+            "message": f"Dataset creado para el usuario {user.username}",
+            "fecha_inicio": dataset.fecha_inicio,
+            "fecha_fin": dataset.fecha_fin
+        }
+    except Exception as e:
+
+        raise HTTPException(
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail = "Algo fallo al realizar la operacion"
+        )
+
+
+@app.delete("/dataset/{id_dataset}", tags = ["Datasets"])
+def delete_dataset(
+        id_dataset: int, 
+        token: str = Depends(oauth2_sheme),
+        owner: DatasetResource = DatasetPermissions("delete", get_dataset_owner),
+    ):
+
+    db = DatasetConnection(**config)
+    data = db.Delete(id = id_dataset)
+    return {
+        "message": "Datasets eliminado con exito",
+        "data": [
+            data
+        ]
+    }
+
+
+@app.put("/dataset/{id_dataset}", tags = ["Datasets"])
+def update_dataset(
+    id_dataset: int,
+    dataset: Dataset,
+    token: str = Depends(oauth2_sheme),
+    owner: DatasetResource = DatasetPermissions("edit", get_dataset_owner)
+):
+    db = DatasetConnection(**config)
+    db.Update(f"""UPDATE datasets SET fecha_inicio="{dataset.fecha_inicio.isoformat()}", fecha_fin="{dataset.fecha_fin.isoformat()}" WHERE id={id_dataset}""")
+    return {
+        "message": "Dataset actualizado con exito",
+        "data": [dataset]
+    }
 
 
 # <---- Endpoint para generar los tokens ---->

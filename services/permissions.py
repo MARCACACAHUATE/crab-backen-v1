@@ -1,7 +1,7 @@
 from pydantic import BaseModel
-from db import UserConnection
+from db import UserConnection, DatasetConnection
 from Models.Request import User
-from fastapi import Depends
+from fastapi import Depends, HTTPException, status
 from services.tokens import get_current_user
 from services.fastapi_permissions import (
         Allow,
@@ -35,11 +35,33 @@ class OwnerResource(BaseModel):
             (Allow, f"owner:{self.username}", "edit")
         ]
 
+class DatasetResource(BaseModel):
+    owner_id: int
+
+    def __acl__(self):
+        return [
+            (Allow, f"owner:{self.owner_id}", "delete"),
+            (Allow, f"owner:{self.owner_id}", "edit")
+        ]
+
 
 def get_user(id: int):
     db = UserConnection(**config)
     user = db.Select(f'SELECT * FROM users WHERE id={id}')[0]
     return OwnerResource(username = user["username"])
+
+
+def get_dataset_owner(id_dataset: int):
+    try:
+        db = DatasetConnection(**config)
+        data = db.Select(f"SELECT * FROM datasets WHERE id={id_dataset}")[0]
+        print(data)
+        return DatasetResource(owner_id = data["usuario_id"])
+    except IndexError:
+        raise HTTPException(
+            status_code = status.HTTP_404_NOT_FOUND,
+            detail = "El dataset no existe a la verga compa"
+        )
 
 
 # da los permisos al usurio
@@ -59,6 +81,13 @@ def get_owner_principals(user: User = Depends(get_current_user)):
     return principals
 
 
+def get_dataset_principals(user: User = Depends(get_current_user)):
+    principals = [Everyone, Authenticated, f'owner:{user.id}']
+    principals.extend(getattr(user, "principals", []))
+    return principals
+
+
 # Decimos como obtenemos los permisos
 AdminPermissions = configure_permissions(get_admin_principals)
 OwnerPermissions = configure_permissions(get_owner_principals)
+DatasetPermissions = configure_permissions(get_dataset_principals)

@@ -14,6 +14,7 @@ class User(BaseModel):
     last_name: Optional[str]
     is_admin: bool = False
     is_active: bool = True
+    id: Optional[int]
 
     # Esta madre es para los permisos
     principals: List[str] = []

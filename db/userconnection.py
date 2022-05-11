@@ -27,6 +27,7 @@ class UserConnection:
                 "password": row[4],
                 "is_admin": bool(row[5]),
                 "is_active": bool(row[6]),
+                "id": x[0],
             })
         cursor.close()
         return data
