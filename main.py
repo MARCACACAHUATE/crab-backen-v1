@@ -1,5 +1,5 @@
 # FastApi
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile
 from h11 import Data
 # Models
 from Models.Request import User as UserRequest, UserStatus
@@ -25,7 +25,8 @@ from services.permissions import (
 # Utilities
 from datetime import timedelta, datetime, date
 from services.tokens import get_current_user
-
+import csv
+import codecs
 
 # dbconection
 config = {
@@ -229,6 +230,80 @@ def update_dataset(
         "message": "Dataset actualizado con exito",
         "data": [dataset]
     }
+
+
+@app.get("/dataset", tags = ["Datasets"])
+def list_datasets(
+    token: str = Depends(oauth2_sheme),
+    user: UserRequest = Depends(get_current_user)
+):
+    print(user.id)
+    db = DatasetConnection(**config)
+    data = db.Select(query = f"SELECT * FROM datasets WHERE usuario_id={user.id}")
+
+    if data:
+        return {
+            "message": "Operacion exitosa",
+            "data": [data]
+        }
+    else: 
+        return {
+            "message": "El usuario no tiene datasets creados",
+            "data": []
+        }
+
+
+@app.post("/dataset/import", tags = ["Datasets"])
+def import_dataset(
+    file: UploadFile,
+    token: str = Depends(oauth2_sheme),
+    user: UserRequest = Depends(get_current_user)
+):
+
+    db = DatasetConnection(**config)
+    cursor = db.conn.cursor()
+    fechas = []
+
+    reader = csv.DictReader(codecs.iterdecode(file.file, "utf-8"))
+
+    # Transaccion para que se almacenen todas las noticias
+    try:
+        for row in reader:
+            cursor.execute(
+                f"""INSERT INTO noticias (contenido, fecha, categoria_id, pagina_id)
+                    VALUES ("{row["contenido"]}", "{row["fecha"]}", "{row["categoria_id"]}", "{row["pagina_id"]}")"""
+            )
+        
+        
+        # crear le dataset
+        for row in reader:
+            fechas.append(row["fecha"])
+
+        fechas.sort()
+        fecha_inicio = fechas.pop(0)
+        fecha_fin = fechas.pop()
+
+        db.Insert(
+            query = f"""INSERT INTO datasets (fecha_inicio, fecha_fin, usuario_id)
+                        VALUES ("{fecha_inicio}","{fecha_fin}",{user.id})"""
+        )
+
+        db.conn.commit()
+        return {
+            "mensaje": "Dataset importado con exito",
+            "data": {
+                "fecha_inicio": fecha_inicio,
+                "fecha_fin": fecha_fin
+            }
+        }
+
+    except Exception as e:
+        db.conn.rollback()
+        print(e)
+        raise HTTPException(
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail = f"Almacenamiento Fallido -> {e}"
+        )
 
 
 # <---- Endpoint para generar los tokens ---->

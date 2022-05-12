@@ -41,8 +41,10 @@ class NoticiaConnect:
 
 
     def Insert(self, query: str):
-        print("Esta madre no hace nada")
-    
+        cursor = self.conn.cursor()
+        cursor.execute(query)
+        self.conn.commit()
+        cursor.close()
     
     def Delete(self, query: str):
         cursor = self.conn.cursor()
