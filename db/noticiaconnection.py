@@ -16,10 +16,11 @@ class NoticiaConnect:
             row = x[1:]
             data.append({
                 "id": x[0],
-                "contenido": row[0],
-                "fecha": row[1],
-                "categoria": row[5],
-                "pagina": row[7],
+                "titulo": row[0],
+                "contenido": row[1],
+                "fecha": row[2],
+                "categoria": row[6],
+                "pagina": row[8],
             })
         cursor.close()
         return data
@@ -31,10 +32,11 @@ class NoticiaConnect:
         for x in cursor:
             data.append({
                 "id": x[0],
-                "contenido": x[1],
-                "fecha": x[2],
-                "categoria_id": x[3],
-                "pagina_id": x[4]
+                "titulo": x[1],
+                "contenido": x[2],
+                "fecha": x[3],
+                "categoria_id": x[4],
+                "pagina_id": x[5]
             })
         cursor.close()
         return data

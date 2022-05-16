@@ -3,6 +3,7 @@ from datetime import date
 
 
 class Noticia(BaseModel):
+    titulo: str
     contenido: str
     fecha: date
     categoria_id: int

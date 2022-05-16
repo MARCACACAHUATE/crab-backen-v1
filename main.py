@@ -114,10 +114,9 @@ def save_noticias(noticias: NoticiaRequest):
     try:
         for noticia in noticias.data:
             cursor.execute(
-                f"""INSERT INTO noticias (contenido, fecha, categoria_id, pagina_id)
-                    VALUES ("{noticia.contenido}", "{noticia.fecha}", "{noticia.categoria_id}", "{noticia.pagina_id}")"""
+                f"""INSERT INTO noticias (titulo, contenido, fecha, categoria_id, pagina_id)
+                    VALUES ("{noticia.titulo}", "{noticia.contenido}", "{noticia.fecha}", "{noticia.categoria_id}", "{noticia.pagina_id}")"""
             )
-            print(noticia)
             cantidad_noticias+=1
         
         db.conn.commit()
@@ -237,7 +236,6 @@ def list_datasets(
     token: str = Depends(oauth2_sheme),
     user: UserRequest = Depends(get_current_user)
 ):
-    print(user.id)
     db = DatasetConnection(**config)
     data = db.Select(query = f"SELECT * FROM datasets WHERE usuario_id={user.id}")
 
@@ -270,8 +268,8 @@ def import_dataset(
     try:
         for row in reader:
             cursor.execute(
-                f"""INSERT INTO noticias (contenido, fecha, categoria_id, pagina_id)
-                    VALUES ("{row["contenido"]}", "{row["fecha"]}", "{row["categoria_id"]}", "{row["pagina_id"]}")"""
+                f"""INSERT INTO noticias (titulo, contenido, fecha, categoria_id, pagina_id)
+                    VALUES ("{row["titulo"]}", "{row["contenido"]}", "{row["fecha"]}", "{row["categoria_id"]}", "{row["pagina_id"]}")"""
             )
         
         
