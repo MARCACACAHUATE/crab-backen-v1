@@ -28,6 +28,8 @@ from services.tokens import get_current_user
 import csv
 import codecs
 
+from fastapi.middleware.cors import CORSMiddleware
+
 # dbconection
 config = {
     "user": "root",
@@ -39,6 +41,19 @@ config = {
 
 
 app = FastAPI()
+
+origins = [
+    "http://localhost:3000",
+    "http://localhost",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 # <---- Users ---->
