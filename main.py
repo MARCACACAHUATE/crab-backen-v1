@@ -9,7 +9,7 @@ from Models.Response import NoticiaResponse
 from Models.Response import Token
 from Models.Request import Dataset
 # db
-from db import UserConnection, NoticiaConnect, DatasetConnection
+from db import UserConnection, NoticiaConnect, DatasetConnection, VistasConnection
 # JWT
 from fastapi.security import OAuth2PasswordRequestForm
 from services.tokens import create_access_token, authenticate_user, create_password_hash, get_current_user
@@ -317,6 +317,32 @@ def import_dataset(
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail = f"Almacenamiento Fallido -> {e}"
         )
+
+
+# <----- Views ----->
+@app.get("/view/dia", tags = ["Vistas"])
+def noticias_dia():
+    db = VistasConnection(**config)
+    data = db.noticiasDia(query = "SELECT * FROM noticias_al_dia");
+    return {
+        "data": data
+    }
+
+@app.get("/view/dataset", tags = ["Vistas"])
+def noticias_dataset():
+    db = VistasConnection(**config)
+    data = db.noticiasDataset(query = "SELECT * FROM (SELECT @prmid_dataset := 1 id_dataset) vista, noticias_in_dataset;")
+    return {
+        "data": data
+    }
+
+@app.get("/view/paginas", tags = ["Vistas"])
+def noticias_pagina():
+    db = VistasConnection(**config)
+    data = db.noticiasPagina(query = "SELECT * FROM noticias_por_pagina;")
+    return {
+        "data": data
+    }
 
 
 # <---- Endpoint para generar los tokens ---->
